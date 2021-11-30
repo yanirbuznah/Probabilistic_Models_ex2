@@ -29,9 +29,14 @@ def lidstone_model_training(words):
     train, validate = separate_validation(words)
     set_train = set(train)
     word_count = train.count(word)
-    params = [len(validate),len(train),len(set_train), word_count]
+    word_mle = word_count/len(train)
+    unseen_mle = 0/len(train)
+    lamda = 0.1
+    word_lidstone = (lamda + word_count)/(lamda*V + len(train))
+    unseen_lidstone = lamda/(lamda*V + len(train))
+    params = [len(validate),len(train),len(set_train), word_count,word_mle,unseen_mle,word_lidstone,unseen_lidstone]
     with open(output, 'a') as f:
-        for i in range(8,12):
+        for i in range(8,16):
             f.write(f'Output{i}: {params[i-8]}\n')
 
 

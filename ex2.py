@@ -74,36 +74,82 @@ class Lidstone(object):
         log_perplexity = 0
         for w in self._validate:
             if w in words_instances.keys():
-                pm = self.lidstone_per_word(words_instances[w],lamda)
+                pm = self.lidstone_per_word(words_instances[w], lamda)
             else:
-                pm = self.lidstone_per_word(0,lamda)
-            #if pm != 0:
+                pm = self.lidstone_per_word(0, lamda)
+            # if pm != 0:
             log_perplexity += math.log(pm, 2)
 
         return 2 ** (-log_perplexity / self._validate_length)
 
-    def lambda_tuning(self,words_instances):
+    def lambda_tuning(self, words_instances):
         lamda = 0
         best_lamda = 0
         best_perplexity = float('inf')
         while lamda <= 2:
             # self.debug(lamda)
-            lamda+=0.01
-            perplexity = self.perplexity(lamda,words_instances)
+            lamda += 0.01
+            perplexity = self.perplexity(lamda, words_instances)
             if perplexity < best_perplexity:
                 best_lamda = lamda
                 best_perplexity = perplexity
 
         return best_lamda, best_perplexity
 
-    def debug(self,lamda):
+    def debug(self, lamda):
         epsilon = 0.00000001
         set_train = Util.count(self._train)
-        unseen_words = (V - len(set_train)) * self.lidstone_per_word(0,lamda)
+        unseen_words = (V - len(set_train)) * self.lidstone_per_word(0, lamda)
         for word in set_train:
-            unseen_words += self.lidstone_per_word(set_train[word],lamda)
+            unseen_words += self.lidstone_per_word(set_train[word], lamda)
         if unseen_words > 1 + epsilon or unseen_words < 1 - epsilon:
             raise RuntimeWarning(f"Lidstone probabilistic do not sum to 1 for lambda: {lamda}")
+
+
+class HeldOut:
+    def __init__(self, train_set, held_out_set, v_size=V):
+        self.train_set = train_set
+        self.held_out_set = held_out_set
+        self.v_size = v_size
+        self.train_count = Util.count(self.train_set)
+        self.held_out_count = Util.count(self.held_out_set)
+        self.n_0 = self.v_size - len(self.train_count.keys())
+
+        # calculate t_r, n_r
+        self.t_r_dict = {}
+        self.n_r_dict = {}
+        for word, r in self.train_count.items():
+            if r in self.t_r_dict:
+                self.t_r_dict[r] += self.held_out_count[word] if word in self.held_out_count else 0
+                self.n_r_dict[r] += 1
+
+            else:
+                self.t_r_dict[r] = self.held_out_count[word] if word in self.held_out_count else 0
+                self.n_r_dict[r] = 1
+
+    def estimate(self, input_word=None):
+        # seen words
+        if input_word in self.train_count:
+            r = self.train_count[input_word]
+            t_r = self.t_r_dict[r]
+            n_r = self.n_r_dict[r]
+            return (t_r / n_r) / len(self.held_out_set)
+        # unseen words (including None object)
+        else:
+            unseen_words = [word for word in self.held_out_set if word not in self.train_count]
+            return len(unseen_words) / (self.n_0 * len(self.held_out_set))
+
+    def debug(self):
+        epsilon = 0.00000001
+        prob_sum = 0
+        # unseen events
+        prob_sum += self.n_0 * self.estimate()
+        # seen events
+        for word in self.train_count:
+            prob_sum += self.estimate(word)
+
+        if prob_sum > 1 + epsilon or prob_sum < 1 - epsilon:
+            raise RuntimeWarning(f"HeldOut probability do not sum to 1")
 
 
 def init(params, output_manager):
@@ -154,17 +200,17 @@ def main():
     output_manager.write_output(lidstone.lidstone_per_word(word_count=word_count, lamda=0.1))
 
     # Output 15
-    output_manager.write_output(lidstone.lidstone_per_word(word_count=train.count('unseen_word'), lamda=0.1))
+    output_manager.write_output(lidstone.lidstone_per_word(word_count=train.count('unseen-word'), lamda=0.1))
 
     # Output 16
     words_instances = Util.count(train)
-    output_manager.write_output(lidstone.perplexity(lamda=0.01,words_instances=words_instances))
+    output_manager.write_output(lidstone.perplexity(lamda=0.01, words_instances=words_instances))
 
     # Output 17
-    output_manager.write_output(lidstone.perplexity(lamda=0.1,words_instances=words_instances))
+    output_manager.write_output(lidstone.perplexity(lamda=0.1, words_instances=words_instances))
 
     # Output 18
-    output_manager.write_output(lidstone.perplexity(lamda=1.0,words_instances=words_instances))
+    output_manager.write_output(lidstone.perplexity(lamda=1.0, words_instances=words_instances))
 
     best_lamda, best_perplexity = lidstone.lambda_tuning(words_instances=words_instances)
     # Output 19
@@ -173,15 +219,22 @@ def main():
     # Output 20
     output_manager.write_output(best_perplexity)
 
-
     """4. Held out model training"""
     training_set, held_out_set = Util.separate_validation(words, 0.5)
+    held_out_model = HeldOut(training_set, held_out_set, v_size=V)
+    held_out_model.debug()
 
     # Output 21
     output_manager.write_output(len(training_set))
+
     # Output 22
     output_manager.write_output(len(held_out_set))
 
+    # Output 23
+    output_manager.write_output(held_out_model.estimate(input_word))
+
+    # Output 24
+    output_manager.write_output(held_out_model.estimate("unseen-word"))
 
 
 if __name__ == '__main__':

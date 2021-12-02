@@ -126,13 +126,13 @@ def main():
     init([development, test, input_word, output, V, 1 / V], output_manager)
 
     # Output 7
-    output_manager.write_output(len(validate))
+    output_manager.write_output(len(words))
 
     # Output 8
-    output_manager.write_output(len(train))
+    output_manager.write_output(len(validate))
 
     # Output 9
-    output_manager.write_output(len(validate))
+    output_manager.write_output(len(train))
 
     # Output 10
     train_instances = Util.count(train)
@@ -173,6 +173,12 @@ def main():
     # Output 20
     output_manager.write_output(best_perplexity)
 
+    # Output 21
+    train,held_out = Util.separate_validation(words,0.5)
+    output_manager.write_output(len(train))
+
+    # Output 22
+    output_manager.write_output(len(held_out))
 
 if __name__ == '__main__':
     main()

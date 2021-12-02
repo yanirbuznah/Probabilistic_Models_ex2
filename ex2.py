@@ -168,7 +168,7 @@ def main():
 
     best_lamda, best_perplexity = lidstone.lambda_tuning(words_instances=words_instances)
     # Output 19
-    output_manager.write_output(lidstone.lambda_tuning(words_instances=words_instances)[1])
+    output_manager.write_output(best_lamda)
 
     # Output 20
     output_manager.write_output(best_perplexity)

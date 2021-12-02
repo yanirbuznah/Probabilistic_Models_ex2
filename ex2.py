@@ -103,7 +103,7 @@ class Lidstone(object):
         for word in set_train:
             unseen_words += self.lidstone_per_word(set_train[word],lamda)
         if unseen_words > 1 + epsilon or unseen_words < 1 - epsilon:
-            raise RuntimeWarning(f"Lidstone probabilistic do not sum to 1 for lambda {lamda}")
+            raise RuntimeWarning(f"Lidstone probabilistic do not sum to 1 for lambda: {lamda}")
 
 
 def init(params, output_manager):

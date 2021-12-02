@@ -173,12 +173,16 @@ def main():
     # Output 20
     output_manager.write_output(best_perplexity)
 
-    # Output 21
-    train,held_out = Util.separate_validation(words,0.5)
-    output_manager.write_output(len(train))
 
+    """4. Held out model training"""
+    training_set, held_out_set = Util.separate_validation(words, 0.5)
+
+    # Output 21
+    output_manager.write_output(len(training_set))
     # Output 22
-    output_manager.write_output(len(held_out))
+    output_manager.write_output(len(held_out_set))
+
+
 
 if __name__ == '__main__':
     main()

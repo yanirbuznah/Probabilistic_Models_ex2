@@ -112,8 +112,6 @@ def init(params, output_manager):
         output_manager.write_output(p)
 
 
-
-
 def main():
     development, test, input_word, output = sys.argv[1:]
     output_manager = OutPut(output)
@@ -168,9 +166,12 @@ def main():
     # Output 18
     output_manager.write_output(lidstone.perplexity(lamda=1.0,words_instances=words_instances))
 
+    best_lamda, best_perplexity = lidstone.lambda_tuning(words_instances=words_instances)
     # Output 19
     output_manager.write_output(lidstone.lambda_tuning(words_instances=words_instances)[1])
 
+    # Output 20
+    output_manager.write_output(best_perplexity)
 
 
 if __name__ == '__main__':

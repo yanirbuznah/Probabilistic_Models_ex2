@@ -74,9 +74,9 @@ class Lidstone(object):
         log_perplexity = 0
         for w in self._validate:
             if w in words_instances.keys():
-                pm = (lamda + words_instances[w]) / denominator
+                pm = self.lidstone_per_word(words_instances[w],lamda)
             else:
-                pm = (lamda / denominator)
+                pm = self.lidstone_per_word(0,lamda)
             #if pm != 0:
             log_perplexity += math.log(pm, 2)
 
@@ -87,6 +87,7 @@ class Lidstone(object):
         best_lamda = 0
         best_perplexity = float('inf')
         while lamda <= 2:
+            # self.debug(lamda)
             lamda+=0.01
             perplexity = self.perplexity(lamda,words_instances)
             if perplexity < best_perplexity:
@@ -95,10 +96,22 @@ class Lidstone(object):
 
         return best_lamda, best_perplexity
 
+    def debug(self,lamda):
+        epsilon = 0.00000001
+        set_train = Util.count(self._train)
+        unseen_words = (V - len(set_train)) * self.lidstone_per_word(0,lamda)
+        for word in set_train:
+            unseen_words += self.lidstone_per_word(set_train[word],lamda)
+        if unseen_words > 1 + epsilon or unseen_words < 1 - epsilon:
+            raise RuntimeWarning(f"Lidstone probabilistic do not sum to 1 for lambda {lamda}")
+
+
 def init(params, output_manager):
     # outputs 1 to 6
     for p in params:
         output_manager.write_output(p)
+
+
 
 
 def main():

@@ -77,23 +77,24 @@ class Lidstone(object):
                 pm = (lamda + words_instances[w]) / denominator
             else:
                 pm = (lamda / denominator)
-            #if pm != 0:
+            # if pm != 0:
             log_perplexity += math.log(pm, 2)
 
         return 2 ** (-log_perplexity / self._validate_length)
 
-    def lambda_tuning(self,words_instances):
+    def lambda_tuning(self, words_instances):
         lamda = 0
         best_lamda = 0
         best_perplexity = float('inf')
         while lamda <= 2:
-            lamda+=0.01
-            perplexity = self.perplexity(lamda,words_instances)
+            lamda += 0.01
+            perplexity = self.perplexity(lamda, words_instances)
             if perplexity < best_perplexity:
                 best_lamda = lamda
                 best_perplexity = perplexity
 
         return best_lamda, best_perplexity
+
 
 def init(params, output_manager):
     # outputs 1 to 6
@@ -147,17 +148,20 @@ def main():
 
     # Output 16
     words_instances = Util.count(train)
-    output_manager.write_output(lidstone.perplexity(lamda=0.01,words_instances=words_instances))
+    output_manager.write_output(lidstone.perplexity(lamda=0.01, words_instances=words_instances))
 
     # Output 17
-    output_manager.write_output(lidstone.perplexity(lamda=0.1,words_instances=words_instances))
+    output_manager.write_output(lidstone.perplexity(lamda=0.1, words_instances=words_instances))
 
     # Output 18
-    output_manager.write_output(lidstone.perplexity(lamda=1.0,words_instances=words_instances))
+    output_manager.write_output(lidstone.perplexity(lamda=1.0, words_instances=words_instances))
 
+    best_lamda, best_perplexity = lidstone.lambda_tuning(words_instances=words_instances)
     # Output 19
-    output_manager.write_output(lidstone.lambda_tuning(words_instances=words_instances)[1])
+    output_manager.write_output(best_lamda)
 
+    # Output 20
+    output_manager.write_output(best_perplexity)
 
 
 if __name__ == '__main__':

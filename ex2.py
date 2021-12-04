@@ -2,7 +2,9 @@ import math
 import sys
 from typing import List
 
-from consts import *
+VOCABULARY_SIZE = 300000
+NAMES = ["Yanir Buznah", "Hilit Aharoni Segev"]
+IDS = ["********", "*********"]
 
 
 class Util:
@@ -58,9 +60,6 @@ class OutPut(object):
         with open(self._output_file, 'a') as f:
             f.write(f"#Output{self._line_count}\t{outcome}\n")
 
-    def write_table(self, f_lambda, f_H, NrT, tr):
-        pass
-
 
 class Lidstone(object):
     def __init__(self, train: List[str], validate: List[str], test: List[str] = None):
@@ -79,7 +78,7 @@ class Lidstone(object):
         return len(self.test)
 
     def lidstone_per_word(self, word_count, _lambda):
-        return (_lambda + word_count) / (_lambda * V + self._train_length)
+        return (_lambda + word_count) / (_lambda * VOCABULARY_SIZE + self._train_length)
 
     def perplexity(self, _lambda, words_instances, test=False):
         log_perplexity = 0
@@ -99,9 +98,13 @@ class Lidstone(object):
         _lambda = 0
         best_lambda = 0
         best_perplexity = float('inf')
+        # run over the lambdas and find the best
         while _lambda <= 2:
-            # self.debug(_lambda)
+            # make sure the probabilities sum to 1
+            self.debug(_lambda)
             _lambda += 0.01
+
+            # check the perplexity and store the bests lambda and perplexity
             perplexity = self.perplexity(_lambda, words_instances)
             if perplexity < best_perplexity:
                 best_lambda = _lambda
@@ -113,12 +116,11 @@ class Lidstone(object):
         return self.lidstone_per_word(r, _lambda) * self._train_length
 
     def debug(self, _lambda):
-        epsilon = 0.00000001
         set_train = Util.count(self._train)
-        unseen_words = (V - len(set_train)) * self.lidstone_per_word(0, _lambda)
+        unseen_words = (VOCABULARY_SIZE - len(set_train)) * self.lidstone_per_word(0, _lambda)
         for word in set_train:
             unseen_words += self.lidstone_per_word(set_train[word], _lambda)
-        if unseen_words > 1 + epsilon or unseen_words < 1 - epsilon:
+        if round(unseen_words, 8) != 1:
             raise RuntimeWarning(f"Lidstone probabilistic do not sum to 1 for lambda: {_lambda}")
 
     @test.setter
@@ -127,7 +129,7 @@ class Lidstone(object):
 
 
 class HeldOut:
-    def __init__(self, train_set, held_out_set, v_size=V):
+    def __init__(self, train_set, held_out_set, v_size=VOCABULARY_SIZE):
         self.train_set = train_set
         self.held_out_set = held_out_set
         self.v_size = v_size
@@ -160,7 +162,7 @@ class HeldOut:
         else:
             return len(self.unseen_words) / (self.n_0 * len(self.held_out_set))
 
-    def f_H(self, r):
+    def f_h(self, r):
         return ((self.t_r_dict[r] / self.n_r_dict[r]) / len(self.held_out_set)) * len(self.train_set)
 
     def perplexity(self, test_set):
@@ -171,15 +173,13 @@ class HeldOut:
         return 2 ** (-log_perplexity / len(test_set))
 
     def debug(self):
-        epsilon = 0.00000001
-        prob_sum = 0
         # unseen events
-        prob_sum += self.n_0 * self.estimate()
+        prob_sum = self.n_0 * self.estimate()
         # seen events
         for word in self.train_count:
             prob_sum += self.estimate(word)
 
-        if prob_sum > 1 + epsilon or prob_sum < 1 - epsilon:
+        if round(prob_sum, 8) != 1:
             raise RuntimeWarning(f"HeldOut probability do not sum to 1")
 
 
@@ -199,12 +199,15 @@ def main():
     train, validate = Util.separate_validation(development_words)
     lidstone = Lidstone(train, validate)
 
+    """1. Init """
     # Output 1-6
-    init([development_file, test_file, input_word, output, V, 1 / V], output_manager)
+    init([development_file, test_file, input_word, output, VOCABULARY_SIZE, 1 / VOCABULARY_SIZE], output_manager)
 
+    """"2. Development set preprocessing """
     # Output 7
     output_manager.write_output(len(development_words))
 
+    """3. Lidstone model training """
     # Output 8
     output_manager.write_output(len(validate))
 
@@ -224,14 +227,14 @@ def main():
     output_manager.write_output(input_word_mle)
 
     # Output 13
-    unseen_word_mle = train.count('unseen_word') / len(train)
+    unseen_word_mle = 0 / len(train)
     output_manager.write_output(unseen_word_mle)
 
     # Output 14
     output_manager.write_output(lidstone.lidstone_per_word(word_count=word_count, _lambda=0.1))
 
     # Output 15
-    output_manager.write_output(lidstone.lidstone_per_word(word_count=train.count('unseen-word'), _lambda=0.1))
+    output_manager.write_output(lidstone.lidstone_per_word(word_count=0, _lambda=0.1))
 
     # Output 16
     words_instances = Util.count(train)
@@ -252,7 +255,7 @@ def main():
 
     """4. Held out model training"""
     training_set, held_out_set = Util.separate_validation(development_words, 0.5)
-    held_out_model = HeldOut(training_set, held_out_set, v_size=V)
+    held_out_model = HeldOut(training_set, held_out_set, v_size=VOCABULARY_SIZE)
     held_out_model.debug()
 
     # Output 21
@@ -267,6 +270,7 @@ def main():
     # Output 24
     output_manager.write_output(held_out_model.estimate("unseen-word"))
 
+    """6. Models evaluation on test set"""
     # Output 25
     test_words = Util.get_events_from_file(test_file)
     output_manager.write_output(len(test_words))
@@ -288,10 +292,10 @@ def main():
     table_output = ""
     for i in range(10):
         f_lambda = round(lidstone.f_lambda(i, best_lambda), 5)
-        f_H = round(held_out_model.f_H(i), 5)
-        NTr = held_out_model.n_r_dict[i]
+        f_h = round(held_out_model.f_h(i), 5)
+        n_tr = held_out_model.n_r_dict[i]
         tr = held_out_model.t_r_dict[i]
-        table_output += f"\n{i}\t {f_lambda} {f_H} {NTr} {tr}"
+        table_output += f"\n{i}\t {f_lambda} {f_h} {n_tr} {tr}"
     output_manager.write_output(table_output)
 
 

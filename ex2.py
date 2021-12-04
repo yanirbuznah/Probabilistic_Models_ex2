@@ -128,7 +128,6 @@ class HeldOut:
         self.train_count = Util.count(self.train_set)
         self.held_out_count = Util.count(self.held_out_set)
         self.n_0 = self.v_size - len(self.train_count.keys())
-
         # calculate t_r, n_r
         self.t_r_dict = {}
         self.n_r_dict = {}
@@ -140,6 +139,7 @@ class HeldOut:
             else:
                 self.t_r_dict[r] = self.held_out_count[word] if word in self.held_out_count else 0
                 self.n_r_dict[r] = 1
+        self.unseen_words = [word for word in self.held_out_set if word not in self.train_count]
 
     def estimate(self, input_word=None):
         # seen words
@@ -150,9 +150,14 @@ class HeldOut:
             return (t_r / n_r) / len(self.held_out_set)
         # unseen words (including None object)
         else:
-            unseen_words = [word for word in self.held_out_set if word not in self.train_count]
-            return len(unseen_words) / (self.n_0 * len(self.held_out_set))
+            return len(self.unseen_words) / (self.n_0 * len(self.held_out_set))
 
+    def perplexity(self,test_set):
+        log_perplexity = 0
+        for w in test_set:
+            log_perplexity += math.log(self.estimate(w), 2)
+
+        return 2 ** (-log_perplexity / len(test_set))
 
     def debug(self):
         epsilon = 0.00000001
@@ -257,10 +262,18 @@ def main():
 
     # Output 26
     lidstone.test = test_words
-    output_manager.write_output(lidstone.perplexity(best_lamda,words_instances,test=True))
+    lidstone_perplexity = lidstone.perplexity(best_lamda,words_instances,test=True)
+    output_manager.write_output(lidstone_perplexity)
 
     # Output 27
+    held_out_perplexity = held_out_model.perplexity(test_words)
+    output_manager.write_output(held_out_perplexity)
 
+    # Output 28
+    better_model = 'L' if lidstone_perplexity < held_out_perplexity else 'H'
+    output_manager.write_output(better_model)
+
+    # OutPut 29
 
 
 

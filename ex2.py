@@ -27,14 +27,14 @@ class Util:
         return dct
 
     @staticmethod
-    def development_pre_processing(development_file):
+    def get_events_from_file(file):
         """
 
-        :param development_file: development file name
+        :param file: development/test file name
         :return: list of all the words (events) in the file
         """
-        # take all the articles from the develop file (i%4 == 2 because [0 -> header, 1-> \n ,2->article,3->\n]
-        with open(development_file, 'r') as f:
+        # take all the articles from the file (i%4 == 2 because [0 -> header, 1-> \n ,2->article,3->\n]
+        with open(file, 'r') as f:
             lines = [l for i, l in enumerate(f.readlines()) if i % 4 == 2]
 
         # flat the lines to all the words in the file
@@ -60,27 +60,37 @@ class OutPut(object):
 
 
 class Lidstone(object):
-    def __init__(self, train: List[str], validate: List[str]):
+    def __init__(self, train: List[str], validate: List[str],test:List[str] = None):
         self._train = train
         self._train_length = len(train)
         self._validate = validate
         self._validate_length = len(validate)
+        self.test = test
+
+    @property
+    def test(self):
+        return self._test
+
+    @property
+    def test_length(self):
+        return len(self.test)
 
     def lidstone_per_word(self, word_count, lamda):
         return (lamda + word_count) / (lamda * V + self._train_length)
 
-    def perplexity(self, lamda, words_instances):
-        denominator = (lamda * V + self._train_length)
+    def perplexity(self, lamda, words_instances, test=False):
         log_perplexity = 0
-        for w in self._validate:
-            if w in words_instances.keys():
-                pm = self.lidstone_per_word(words_instances[w], lamda)
-            else:
-                pm = self.lidstone_per_word(0, lamda)
-            # if pm != 0:
-            log_perplexity += math.log(pm, 2)
+        test_set , test_set_length = (self.test, self.test_length) if test else (self._validate, self._validate_length)
 
-        return 2 ** (-log_perplexity / self._validate_length)
+        for w in test_set:
+            # the number of instances in the file
+            num_of_instances = words_instances[w] if w in words_instances.keys() else 0
+
+            # calc the log of the perplexity for one word with the given lambda
+            # if pm != 0:
+            log_perplexity += math.log(self.lidstone_per_word(num_of_instances, lamda), 2)
+
+        return 2 ** (-log_perplexity / test_set_length)
 
     def lambda_tuning(self, words_instances):
         lamda = 0
@@ -104,6 +114,10 @@ class Lidstone(object):
             unseen_words += self.lidstone_per_word(set_train[word], lamda)
         if unseen_words > 1 + epsilon or unseen_words < 1 - epsilon:
             raise RuntimeWarning(f"Lidstone probabilistic do not sum to 1 for lambda: {lamda}")
+
+    @test.setter
+    def test(self, value):
+        self._test = value
 
 
 class HeldOut:
@@ -139,6 +153,7 @@ class HeldOut:
             unseen_words = [word for word in self.held_out_set if word not in self.train_count]
             return len(unseen_words) / (self.n_0 * len(self.held_out_set))
 
+
     def debug(self):
         epsilon = 0.00000001
         prob_sum = 0
@@ -159,20 +174,20 @@ def init(params, output_manager):
 
 
 def main():
-    development, test, input_word, output = sys.argv[1:]
+    development_file, test_file, input_word, output = sys.argv[1:]
     output_manager = OutPut(output)
     # get all the words in the development file
-    words = Util.development_pre_processing(development)
+    development_words = Util.get_events_from_file(development_file)
 
     # separate train and validate
-    train, validate = Util.separate_validation(words)
+    train, validate = Util.separate_validation(development_words)
     lidstone = Lidstone(train, validate)
 
     # Output 1-6
-    init([development, test, input_word, output, V, 1 / V], output_manager)
+    init([development_file, test_file, input_word, output, V, 1 / V], output_manager)
 
     # Output 7
-    output_manager.write_output(len(words))
+    output_manager.write_output(len(development_words))
 
     # Output 8
     output_manager.write_output(len(validate))
@@ -220,7 +235,7 @@ def main():
     output_manager.write_output(best_perplexity)
 
     """4. Held out model training"""
-    training_set, held_out_set = Util.separate_validation(words, 0.5)
+    training_set, held_out_set = Util.separate_validation(development_words, 0.5)
     held_out_model = HeldOut(training_set, held_out_set, v_size=V)
     held_out_model.debug()
 
@@ -235,6 +250,18 @@ def main():
 
     # Output 24
     output_manager.write_output(held_out_model.estimate("unseen-word"))
+
+    # Output 25
+    test_words = Util.get_events_from_file(test_file)
+    output_manager.write_output(len(test_words))
+
+    # Output 26
+    lidstone.test = test_words
+    output_manager.write_output(lidstone.perplexity(best_lamda,words_instances,test=True))
+
+    # Output 27
+
+
 
 
 if __name__ == '__main__':

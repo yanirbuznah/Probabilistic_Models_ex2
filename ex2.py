@@ -58,9 +58,12 @@ class OutPut(object):
         with open(self._output_file, 'a') as f:
             f.write(f"#Output{self._line_count}\t{outcome}\n")
 
+    def write_table(self, f_lambda, f_H, NrT, tr):
+        pass
+
 
 class Lidstone(object):
-    def __init__(self, train: List[str], validate: List[str],test:List[str] = None):
+    def __init__(self, train: List[str], validate: List[str], test: List[str] = None):
         self._train = train
         self._train_length = len(train)
         self._validate = validate
@@ -80,7 +83,7 @@ class Lidstone(object):
 
     def perplexity(self, lamda, words_instances, test=False):
         log_perplexity = 0
-        test_set , test_set_length = (self.test, self.test_length) if test else (self._validate, self._validate_length)
+        test_set, test_set_length = (self.test, self.test_length) if test else (self._validate, self._validate_length)
 
         for w in test_set:
             # the number of instances in the file
@@ -152,7 +155,7 @@ class HeldOut:
         else:
             return len(self.unseen_words) / (self.n_0 * len(self.held_out_set))
 
-    def perplexity(self,test_set):
+    def perplexity(self, test_set):
         log_perplexity = 0
         for w in test_set:
             log_perplexity += math.log(self.estimate(w), 2)
@@ -262,7 +265,7 @@ def main():
 
     # Output 26
     lidstone.test = test_words
-    lidstone_perplexity = lidstone.perplexity(best_lamda,words_instances,test=True)
+    lidstone_perplexity = lidstone.perplexity(best_lamda, words_instances, test=True)
     output_manager.write_output(lidstone_perplexity)
 
     # Output 27
@@ -274,7 +277,6 @@ def main():
     output_manager.write_output(better_model)
 
     # OutPut 29
-
 
 
 if __name__ == '__main__':

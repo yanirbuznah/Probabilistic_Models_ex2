@@ -78,10 +78,10 @@ class Lidstone(object):
     def test_length(self):
         return len(self.test)
 
-    def lidstone_per_word(self, word_count, lamda):
-        return (lamda + word_count) / (lamda * V + self._train_length)
+    def lidstone_per_word(self, word_count, _lambda):
+        return (_lambda + word_count) / (_lambda * V + self._train_length)
 
-    def perplexity(self, lamda, words_instances, test=False):
+    def perplexity(self, _lambda, words_instances, test=False):
         log_perplexity = 0
         test_set, test_set_length = (self.test, self.test_length) if test else (self._validate, self._validate_length)
 
@@ -91,32 +91,35 @@ class Lidstone(object):
 
             # calc the log of the perplexity for one word with the given lambda
             # if pm != 0:
-            log_perplexity += math.log(self.lidstone_per_word(num_of_instances, lamda), 2)
+            log_perplexity += math.log(self.lidstone_per_word(num_of_instances, _lambda), 2)
 
         return 2 ** (-log_perplexity / test_set_length)
 
     def lambda_tuning(self, words_instances):
-        lamda = 0
-        best_lamda = 0
+        _lambda = 0
+        best_lambda = 0
         best_perplexity = float('inf')
-        while lamda <= 2:
-            # self.debug(lamda)
-            lamda += 0.01
-            perplexity = self.perplexity(lamda, words_instances)
+        while _lambda <= 2:
+            # self.debug(_lambda)
+            _lambda += 0.01
+            perplexity = self.perplexity(_lambda, words_instances)
             if perplexity < best_perplexity:
-                best_lamda = lamda
+                best_lambda = _lambda
                 best_perplexity = perplexity
 
-        return best_lamda, best_perplexity
+        return best_lambda, best_perplexity
 
-    def debug(self, lamda):
+    def f_lambda(self, r, _lambda):
+        return self.lidstone_per_word(r, _lambda) * self._train_length
+
+    def debug(self, _lambda):
         epsilon = 0.00000001
         set_train = Util.count(self._train)
-        unseen_words = (V - len(set_train)) * self.lidstone_per_word(0, lamda)
+        unseen_words = (V - len(set_train)) * self.lidstone_per_word(0, _lambda)
         for word in set_train:
-            unseen_words += self.lidstone_per_word(set_train[word], lamda)
+            unseen_words += self.lidstone_per_word(set_train[word], _lambda)
         if unseen_words > 1 + epsilon or unseen_words < 1 - epsilon:
-            raise RuntimeWarning(f"Lidstone probabilistic do not sum to 1 for lambda: {lamda}")
+            raise RuntimeWarning(f"Lidstone probabilistic do not sum to 1 for lambda: {_lambda}")
 
     @test.setter
     def test(self, value):
@@ -133,7 +136,7 @@ class HeldOut:
         self.n_0 = self.v_size - len(self.train_count.keys())
         # calculate t_r, n_r
         self.t_r_dict = {}
-        self.n_r_dict = {}
+        self.n_r_dict = {0: self.n_0}
         for word, r in self.train_count.items():
             if r in self.t_r_dict:
                 self.t_r_dict[r] += self.held_out_count[word] if word in self.held_out_count else 0
@@ -142,6 +145,8 @@ class HeldOut:
             else:
                 self.t_r_dict[r] = self.held_out_count[word] if word in self.held_out_count else 0
                 self.n_r_dict[r] = 1
+        # count the frequency of the words in the held out set but not in the train set.
+        self.t_r_dict[0] = sum([f for word, f in self.held_out_count.items() if word not in self.train_count.keys()])
         self.unseen_words = [word for word in self.held_out_set if word not in self.train_count]
 
     def estimate(self, input_word=None):
@@ -154,6 +159,9 @@ class HeldOut:
         # unseen words (including None object)
         else:
             return len(self.unseen_words) / (self.n_0 * len(self.held_out_set))
+
+    def f_H(self, r):
+        return ((self.t_r_dict[r] / self.n_r_dict[r]) / len(self.held_out_set)) * len(self.train_set)
 
     def perplexity(self, test_set):
         log_perplexity = 0
@@ -220,24 +228,24 @@ def main():
     output_manager.write_output(unseen_word_mle)
 
     # Output 14
-    output_manager.write_output(lidstone.lidstone_per_word(word_count=word_count, lamda=0.1))
+    output_manager.write_output(lidstone.lidstone_per_word(word_count=word_count, _lambda=0.1))
 
     # Output 15
-    output_manager.write_output(lidstone.lidstone_per_word(word_count=train.count('unseen-word'), lamda=0.1))
+    output_manager.write_output(lidstone.lidstone_per_word(word_count=train.count('unseen-word'), _lambda=0.1))
 
     # Output 16
     words_instances = Util.count(train)
-    output_manager.write_output(lidstone.perplexity(lamda=0.01, words_instances=words_instances))
+    output_manager.write_output(lidstone.perplexity(_lambda=0.01, words_instances=words_instances))
 
     # Output 17
-    output_manager.write_output(lidstone.perplexity(lamda=0.1, words_instances=words_instances))
+    output_manager.write_output(lidstone.perplexity(_lambda=0.1, words_instances=words_instances))
 
     # Output 18
-    output_manager.write_output(lidstone.perplexity(lamda=1.0, words_instances=words_instances))
+    output_manager.write_output(lidstone.perplexity(_lambda=1.0, words_instances=words_instances))
 
-    best_lamda, best_perplexity = lidstone.lambda_tuning(words_instances=words_instances)
+    best_lambda, best_perplexity = lidstone.lambda_tuning(words_instances=words_instances)
     # Output 19
-    output_manager.write_output(best_lamda)
+    output_manager.write_output(best_lambda)
 
     # Output 20
     output_manager.write_output(best_perplexity)
@@ -265,7 +273,7 @@ def main():
 
     # Output 26
     lidstone.test = test_words
-    lidstone_perplexity = lidstone.perplexity(best_lamda, words_instances, test=True)
+    lidstone_perplexity = lidstone.perplexity(best_lambda, words_instances, test=True)
     output_manager.write_output(lidstone_perplexity)
 
     # Output 27
@@ -277,6 +285,14 @@ def main():
     output_manager.write_output(better_model)
 
     # OutPut 29
+    table_output = ""
+    for i in range(10):
+        f_lambda = round(lidstone.f_lambda(i, best_lambda), 5)
+        f_H = round(held_out_model.f_H(i), 5)
+        NTr = held_out_model.n_r_dict[i]
+        tr = held_out_model.t_r_dict[i]
+        table_output += f"\n{i}\t {f_lambda} {f_H} {NTr} {tr}"
+    output_manager.write_output(table_output)
 
 
 if __name__ == '__main__':

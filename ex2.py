@@ -1,3 +1,5 @@
+
+
 import math
 import sys
 from typing import List
@@ -60,6 +62,11 @@ class OutPut(object):
         with open(self._output_file, 'a') as f:
             f.write(f"#Output{self._line_count}\t{outcome}\n")
 
+    def write_table(self,outcome):
+        self._line_count += 1
+        with open(self._output_file, 'a') as f:
+            f.write(f"#Output{self._line_count}{outcome}\n")
+
 
 class Lidstone(object):
     def __init__(self, train: List[str], validate: List[str], test: List[str] = None):
@@ -101,9 +108,9 @@ class Lidstone(object):
         # run over the lambdas and find the best
         while _lambda <= 2:
             # make sure the probabilities sum to 1
+
             self.debug(_lambda)
             _lambda += 0.01
-
             # check the perplexity and store the bests lambda and perplexity
             perplexity = self.perplexity(_lambda, words_instances)
             if perplexity < best_perplexity:
@@ -248,7 +255,7 @@ def main():
 
     best_lambda, best_perplexity = lidstone.lambda_tuning(words_instances=words_instances)
     # Output 19
-    output_manager.write_output(best_lambda)
+    output_manager.write_output(round(best_lambda,2))
 
     # Output 20
     output_manager.write_output(best_perplexity)
@@ -295,8 +302,8 @@ def main():
         f_h = round(held_out_model.f_h(i), 5)
         n_tr = held_out_model.n_r_dict[i]
         tr = held_out_model.t_r_dict[i]
-        table_output += f"\n{i}\t {f_lambda} {f_h} {n_tr} {tr}"
-    output_manager.write_output(table_output)
+        table_output += f"\n{i}\t{f_lambda}\t{f_h}\t{n_tr}\t{tr}"
+    output_manager.write_table(table_output)
 
 
 if __name__ == '__main__':
